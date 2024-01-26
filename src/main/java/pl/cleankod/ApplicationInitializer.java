@@ -4,9 +4,12 @@ import feign.Feign;
 import feign.httpclient.ApacheHttpClient;
 import feign.jackson.JacksonDecoder;
 import feign.jackson.JacksonEncoder;
+import feign.slf4j.Slf4jLogger;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 import pl.cleankod.exchange.core.gateway.AccountRepository;
@@ -22,11 +25,14 @@ import pl.cleankod.exchange.provider.CurrencyConversionNbpService;
 import pl.cleankod.exchange.provider.NbpRateService;
 import pl.cleankod.exchange.provider.nbp.CustomNbpErrorDecoder;
 import pl.cleankod.exchange.provider.nbp.ExchangeRatesNbpClient;
+import pl.cleankod.util.CorrelationIdFilter;
+import pl.cleankod.util.FeignCorrelationIdInterceptor;
 
 import java.util.Currency;
 
 @SpringBootConfiguration
 @EnableAutoConfiguration
+@EnableCaching
 public class ApplicationInitializer {
 
 	public static void main(String[] args) {
@@ -39,13 +45,24 @@ public class ApplicationInitializer {
 	}
 
 	@Bean
+	public FilterRegistrationBean<CorrelationIdFilter> correlationIdFilter() {
+		FilterRegistrationBean<CorrelationIdFilter> registrationBean = new FilterRegistrationBean<>();
+		registrationBean.setFilter(new CorrelationIdFilter());
+		registrationBean.addUrlPatterns("/*");
+		return registrationBean;
+	}
+
+	@Bean
 	ExchangeRatesNbpClient exchangeRatesNbpClient(Environment environment) {
 		String nbpApiBaseUrl = environment.getRequiredProperty("provider.nbp-api.base-url");
 		return Feign.builder()
 				.client(new ApacheHttpClient())
 				.encoder(new JacksonEncoder())
 				.decoder(new JacksonDecoder())
+				.logger(new Slf4jLogger(ExchangeRatesNbpClient.class))
+				.logLevel(feign.Logger.Level.FULL)
 				.errorDecoder(new CustomNbpErrorDecoder())
+				.requestInterceptor(new FeignCorrelationIdInterceptor())
 				.target(ExchangeRatesNbpClient.class, nbpApiBaseUrl);
 	}
 

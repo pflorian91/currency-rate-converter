@@ -91,11 +91,14 @@ Documentation available at
 
 Added NbpRateService
 
+[x] Better logging with traceability.
+
+Added correlation-id
+
 
 * Circuit-breaker for the NBP API client.
-* Better logging with traceability.
-
 * Integration tests with the real NBP API.
+
 
 * Replace exceptions with `Result` (`either`) which improves the overall methods API readability and forces error handling. Look into [cleankod/architecture-archetype](https://github.com/cleankod/architecture-archetype) as a starting point.
 * Replace Spring Framework with a different one.
