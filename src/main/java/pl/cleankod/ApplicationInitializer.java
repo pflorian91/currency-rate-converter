@@ -1,10 +1,14 @@
 package pl.cleankod;
 
-import feign.Feign;
 import feign.httpclient.ApacheHttpClient;
 import feign.jackson.JacksonDecoder;
 import feign.jackson.JacksonEncoder;
 import feign.slf4j.Slf4jLogger;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.feign.FeignDecorator;
+import io.github.resilience4j.feign.FeignDecorators;
+import io.github.resilience4j.feign.Resilience4jFeign;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -53,9 +57,15 @@ public class ApplicationInitializer {
 	}
 
 	@Bean
-	ExchangeRatesNbpClient exchangeRatesNbpClient(Environment environment) {
+	ExchangeRatesNbpClient exchangeRatesNbpClient(Environment environment, CircuitBreakerRegistry circuitBreakerRegistry) {
 		String nbpApiBaseUrl = environment.getRequiredProperty("provider.nbp-api.base-url");
-		return Feign.builder()
+
+		CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker("nbpCircuitBreaker");
+		FeignDecorator decorators = FeignDecorators.builder()
+				.withCircuitBreaker(circuitBreaker)
+				.build();
+
+		return Resilience4jFeign.builder(decorators)
 				.client(new ApacheHttpClient())
 				.encoder(new JacksonEncoder())
 				.decoder(new JacksonDecoder())
